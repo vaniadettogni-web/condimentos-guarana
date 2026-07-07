@@ -150,11 +150,16 @@ table.pt td:nth-child(5),table.pt td:nth-child(6),table.pt td:nth-child(7){text-
 .adv-s{background:var(--azgl);color:var(--azul);border:1px solid rgba(76,158,255,.3)}
 .adv-e{background:var(--vgl);color:var(--verde);border:1px solid rgba(0,217,126,.3)}
 
-.iped{display:flex;gap:5px;align-items:center;margin-bottom:5px}
+.iped{display:flex;gap:5px;align-items:flex-start;margin-bottom:5px}
 .iped select{flex:2;font-size:12px;padding:7px 8px}
+.iped .ipbusca{width:100%;font-size:12px;padding:7px 8px}
 .iped .ipqty{flex:0 0 55px;font-size:12px;padding:7px 7px}
 .iped .ippreco{flex:0 0 75px;font-size:12px;padding:7px 7px}
 .iped .del{background:var(--rgl);border:none;border-radius:7px;width:30px;height:30px;flex-shrink:0;cursor:pointer;color:var(--vermelho);font-size:13px;display:flex;align-items:center;justify-content:center}
+.ipsugestoes{display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg3);border:1px solid var(--borda2);border-radius:8px;max-height:160px;overflow-y:auto;z-index:30;margin-top:2px;box-shadow:0 8px 20px rgba(0,0,0,.4)}
+.ipsug-item{padding:8px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--borda)}
+.ipsug-item:last-child{border-bottom:none}
+.ipsug-item:active{background:var(--bg4)}
 
 .cli-card{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--borda)}
 .cli-card:last-child{border-bottom:none}
@@ -276,6 +281,10 @@ table.pt td:nth-child(5),table.pt td:nth-child(6),table.pt td:nth-child(7){text-
       <button class="stab" onclick="estSub('mp',this)">Matéria-prima</button>
     </div>
     <div id="sub-prod">
+      <div class="stat-row" style="margin-bottom:9px">
+        <div class="sc r"><div class="sc-lbl">Sem estoque</div><div class="sc-num r" id="cont-prod-zerado">0</div><div class="sc-glow gr"></div></div>
+        <div class="sc o"><div class="sc-lbl">Estoque baixo</div><div class="sc-num o" id="cont-prod-baixo">0</div><div class="sc-glow go"></div></div>
+      </div>
       <div id="al-prod"></div>
       <div class="sh"><div class="sh-title">Estoque</div>
         <button class="sh-btn" onclick="imprimirEst('prod')">
@@ -439,6 +448,8 @@ table.pt td:nth-child(5),table.pt td:nth-child(6),table.pt td:nth-child(7){text-
     </div>
   </div>
 
+  <div style="text-align:center;padding:16px 24px 10px;font-size:11px;color:var(--txt3);font-style:italic;line-height:1.5">"O Senhor é o meu pastor; nada me faltará" — Salmos 23:1</div>
+
 </div>
 
 <nav class="nav">
@@ -477,6 +488,32 @@ table.pt td:nth-child(5),table.pt td:nth-child(6),table.pt td:nth-child(7){text-
   </div>
 </div>
 
+<div class="overlay" id="prod-edit-overlay">
+  <div class="pin-box" style="width:290px;text-align:left">
+    <h2 style="text-align:center">Editar produto</h2>
+    <div class="frow" style="margin-top:14px"><div class="flbl">Nome</div><input type="text" id="edit-prod-nome"></div>
+    <div class="frow"><div class="flbl">Estoque mínimo</div><input type="number" id="edit-prod-min" min="1"></div>
+    <button class="btn-m" id="btn-salvar-edit-prod" onclick="salvarEdicaoProduto()">Salvar alterações</button>
+    <button class="btn-s" style="color:var(--vermelho);border-color:rgba(255,69,96,.3)" onclick="excluirProdutoConfirm()">Excluir produto</button>
+    <button class="pcl" style="width:100%" onclick="fecharEditProduto()">Cancelar</button>
+  </div>
+</div>
+
+<div class="overlay" id="ped-edit-overlay">
+  <div class="pin-box" style="width:320px;max-height:82vh;overflow-y:auto;text-align:left">
+    <h2 style="text-align:center;margin-bottom:12px">Editar pedido #<span id="edit-ped-num"></span></h2>
+    <div class="frow"><div class="flbl">Cliente</div><select id="edit-sel-cli"></select></div>
+    <div style="display:grid;grid-template-columns:1fr 52px 72px 28px;gap:4px;margin:8px 0 4px;padding:0 1px">
+      <div class="flbl">Produto</div><div class="flbl" style="text-align:center">Qtd</div><div class="flbl" style="text-align:center">R$ Unit</div><div></div>
+    </div>
+    <div id="edit-itens-ped"></div>
+    <button class="btn-s" onclick="addItemEdit()">+ Adicionar produto</button>
+    <div class="frow" style="margin-top:9px"><div class="flbl">Observação</div><textarea id="edit-obs-ped" rows="2"></textarea></div>
+    <button class="btn-m" id="btn-salvar-edit-ped" onclick="salvarEdicaoPedido()">Salvar alterações</button>
+    <button class="pcl" style="width:100%" onclick="fecharEditPedido()">Cancelar</button>
+  </div>
+</div>
+
 <div class="overlay" id="fmod" onclick="this.classList.remove('on')">
   <div class="fmod-img"><img id="fmod-img" src="" alt="Foto"></div>
 </div>
@@ -499,29 +536,30 @@ let tipoMP='in',tipoFin='in',fotoFin=null,relMesOffset=0,finOk=false,pinBuf='';
 const PRODS_NOMES=[
   'Açafrão 10g','Açafrão 50g','Açafrão 500g','Alecrim 15g','Alho Frito','Alho Granulado 20g',
   'Bicarbonato 27g','Bicarbonato 100g','Bicarbonato 500g','Bicarbonato 1kg',
-  'Canela Casca 7g','Canela Pó 7g','Caneleiro 30g','Chimichurri 20g',
+  'Canela Casca 7g','Canela Pó 7g','Caneleiro 30g','Chimichurri 20g','Chimichurri 200g',
   'Coador Cabo Arame','Coador Cabo Madeira G','Coador Cabo Madeira M',
-  'Coentro em Pó 7g','Coentro 30g',
+  'Coentro em Pó 7g',
   'Colorau 30g','Colorau 50g','Colorau 100g','Colorau 200g','Colorau 500g',
   'Cominho Grão 7g','Cominho em Pó 7g',
   'Confete Chocolate 27g','Confete Chocolate 100g','Confete Colorido 27g','Confete Colorido 57g',
   'Confete Miçanga 27g','Confete Miçanga 57g','Cravo 7g','Curry 27g',
   'Erva Doce 7g','Erva Doce 18g','Ervas Finas 15g',
   'Flanela 28x48cm Amarela','Flanela 28x48cm Branca','Flanela 38x58cm Amarela','Flanela 38x58cm Branca',
-  'Lemon Pepper 20g','Louro Folha 4g','Louro em Pó 7g','Manjericão 10g',
+  'Lemon Pepper 20g','Lemon Pepper 200g','Louro Folha 4g','Louro em Pó 7g','Manjericão 10g',
+  'Pano Microfibra 38x60cm','Pano Microfibra 70x80cm',
   'Molho de Alho 150ml','Molho de Pimenta 150ml','Molho Inglês 150ml',
   'Noz Moscada c/2 un','Noz Moscada em Pó 10g',
   'Orégano 4g','Orégano 30g','Orégano 100g','Orégano 500g',
   'Páprica Defumada 27g','Páprica Doce 27g','Páprica Picante 27g',
-  'Pimenta Biquinho 420g','Pimenta Calabresa 20g',
-  'Pimenta do Reino Grão 10g','Pimenta do Reino Grão 15g',
-  'Pimenta do Reino em Pó 27g','Pimenta do Reino em Pó 50g','Pimenta do Reino em Pó 100g',
+  'Pimenta Biquinho 420g','Pimenta Biquinho 2kg','Pimenta Calabresa 20g',
+  'Pimenta do Reino Grão 10g','Pimenta do Reino Grão 15g','Pimenta do Reino Grão 20g',
+  'Pimenta do Reino em Pó 15g','Pimenta do Reino em Pó 27g','Pimenta do Reino em Pó 50g','Pimenta do Reino em Pó 100g','Pimenta do Reino em Pó 200g',
   'Pimenta do Reino Pó c/Cominho 27g','Pimenta Jamaica 27g','Pimenta Malagueta 80g','Pimenta Síria 27g',
   'Pimenteiro 40g','Sal Amontaco 30g','Sal Amontaco 50g','Salsa Desidratada 10g',
   'Tempero Ana Maria 27g','Tempero Baiano 50g',
-  'Tempero Completo c/Pimenta 27g','Tempero Completo s/Pimenta 27g',
+  'Tempero Completo c/Pimenta 27g','Tempero Completo s/Pimenta 27g','Tempero Completo s/Pimenta 200g',
   'Tempero Edu Guedes 27g','Tempero Pega Marido 27g',
-  'Tomilho','Uva Passas 50g','Vinagrete 20g','Outro produto'
+  'Tomilho 10g','Uva Passas 50g','Uva Passas 100g','Vinagrete 20g','Outro produto'
 ];
 const MPS_NOMES=[
   'Urucum — kg','Fubá — kg','Óleo — litros','Pimenta do reino a granel — kg',
@@ -603,11 +641,16 @@ function verFoto(src){document.getElementById('fmod-img').src=src;document.getEl
 // ====== SUPABASE INIT ======
 async function iniciarProdutos(){
   const {data}=await db.from('produtos').select('*').order('nome');
-  if(data&&data.length>0){produtos=data;return;}
-  // popular pela primeira vez
-  const inserts=PRODS_NOMES.map(n=>({nome:n,qty:0,min:50}));
-  const {data:d2}=await db.from('produtos').insert(inserts).select();
-  if(d2)produtos=d2;
+  const existentes=data||[];
+  const nomesExistentes=new Set(existentes.map(p=>p.nome));
+  const faltando=PRODS_NOMES.filter(n=>!nomesExistentes.has(n));
+  if(faltando.length>0){
+    const inserts=faltando.map(n=>({nome:n,qty:0,min:50}));
+    const {data:novos}=await db.from('produtos').insert(inserts).select();
+    if(novos)existentes.push(...novos);
+  }
+  existentes.sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  produtos=existentes;
 }
 async function iniciarMPs(){
   const {data}=await db.from('materias_primas').select('*').order('nome');
@@ -650,16 +693,47 @@ function renderProd(){
   const fil=produtos.filter(p=>p.nome.toLowerCase().includes(b));
   const zer=produtos.filter(p=>p.qty===0);
   const low=produtos.filter(p=>p.qty>0&&p.qty<=p.min);
+  document.getElementById('cont-prod-zerado').textContent=zer.length;
+  document.getElementById('cont-prod-baixo').textContent=low.length;
   let al='';
   if(zer.length)al+=`<div class="alert al-r"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span><b>Sem estoque:</b> ${zer.slice(0,4).map(p=>p.nome).join(', ')}${zer.length>4?' +'+(zer.length-4)+'...':''}</span></div>`;
   if(low.length)al+=`<div class="alert al-o"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span><b>Estoque baixo:</b> ${low.map(p=>p.nome).join(', ')}</span></div>`;
   document.getElementById('al-prod').innerHTML=al;
   document.getElementById('lista-prod').innerHTML=fil.map(p=>{
     let bc='bok',bt='OK';if(p.qty===0){bc='bout';bt='Zerado'}else if(p.qty<=p.min){bc='blow';bt='Baixo'}
-    return`<div class="pi"><div class="pi-n">${p.nome}</div><div class="pi-r"><span class="badge ${bc}">${bt}</span><div class="pi-q">${p.qty}</div></div></div>`;
+    return`<div class="pi"><div class="pi-n">${p.nome}</div><div class="pi-r"><span class="badge ${bc}">${bt}</span><div class="pi-q">${p.qty}</div><button class="cli-del" style="opacity:.5;font-size:14px" onclick="abrirEditProduto(${p.id})">✎</button></div></div>`;
   }).join('');
   const s=document.getElementById('sel-prod');if(s)s.innerHTML=produtos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
   document.getElementById('lista-min').innerHTML=produtos.map(p=>`<div class="min-row"><div class="min-name">${p.nome}</div><input class="min-inp" type="number" value="${p.min}" min="1" onchange="atualizarMin(${p.id},this.value)"></div>`).join('');
+}
+
+// EDITAR/EXCLUIR PRODUTO
+let editProdId=null;
+function abrirEditProduto(id){
+  const p=produtos.find(x=>x.id===id);if(!p)return;
+  editProdId=id;
+  document.getElementById('edit-prod-nome').value=p.nome;
+  document.getElementById('edit-prod-min').value=p.min;
+  document.getElementById('prod-edit-overlay').classList.add('on');
+}
+function fecharEditProduto(){document.getElementById('prod-edit-overlay').classList.remove('on');editProdId=null}
+async function salvarEdicaoProduto(){
+  if(!editProdId)return;
+  const nome=document.getElementById('edit-prod-nome').value.trim();
+  const min=parseInt(document.getElementById('edit-prod-min').value)||1;
+  if(!nome){toast('Informe o nome.');return;}
+  document.getElementById('btn-salvar-edit-prod').disabled=true;
+  await db.from('produtos').update({nome,min}).eq('id',editProdId);
+  document.getElementById('btn-salvar-edit-prod').disabled=false;
+  fecharEditProduto();
+  await carregarProds();toast('Produto atualizado!');
+}
+async function excluirProdutoConfirm(){
+  if(!editProdId)return;
+  if(!confirm('Tem certeza que deseja excluir este produto? Essa ação não pode ser desfeita.'))return;
+  await db.from('produtos').delete().eq('id',editProdId);
+  fecharEditProduto();
+  await carregarProds();toast('Produto excluído.');
 }
 async function atualizarMin(id,val){
   await db.from('produtos').update({min:parseInt(val)||1}).eq('id',id);
@@ -710,10 +784,35 @@ async function atualizarMP(){
 }
 
 // PEDIDOS
+function onInputProdutoPed(inp){
+  const row=inp.closest('.iped');
+  row.querySelector('.ipprod').value='';
+  mostrarSugestoesPed(inp);
+}
+function mostrarSugestoesPed(inp){
+  const row=inp.closest('.iped');
+  const box=row.querySelector('.ipsugestoes');
+  const termo=inp.value.toLowerCase();
+  const fil=(termo?produtos.filter(p=>p.nome.toLowerCase().includes(termo)):produtos).slice(0,30);
+  box.innerHTML=fil.length?fil.map(p=>`<div class="ipsug-item" onmousedown="selecionarProdutoPed(this,'${p.nome.replace(/'/g,"\\'")}')">${p.nome}</div>`).join(''):'<div class="ipsug-item" style="color:var(--txt3)">Nenhum produto encontrado</div>';
+  box.style.display='block';
+}
+function selecionarProdutoPed(el,nome){
+  const row=el.closest('.iped');
+  row.querySelector('.ipbusca').value=nome;
+  row.querySelector('.ipprod').value=nome;
+  row.querySelector('.ipsugestoes').style.display='none';
+  const precoInp=row.querySelector('.ippreco');
+  if(!precoInp.value&&precoProd[nome])precoInp.value=precoProd[nome];
+  calcTotalPed();
+}
+document.addEventListener('click',e=>{
+  document.querySelectorAll('.ipsugestoes').forEach(b=>{if(!b.parentElement.contains(e.target))b.style.display='none'});
+});
 function calcTotalPed(){
   let tot=0;
   for(const row of document.getElementById('itens-ped').children){
-    const prod=row.querySelector('select')?.value||'';
+    const prod=row.querySelector('.ipprod')?.value||'';
     const qty=parseFloat(row.querySelector('.ipqty')?.value)||0;
     const preco=parseFloat(row.querySelector('.ippreco')?.value)||precoProd[prod]||0;
     tot+=qty*preco;
@@ -722,9 +821,12 @@ function calcTotalPed(){
   document.getElementById('total-ped-wrap').style.display=tot>0?'flex':'none';
 }
 function addItem(){
-  const id=Date.now();const d=document.createElement('div');d.className='iped';d.id='ip'+id;
-  const opts=produtos.map(p=>`<option>${p.nome}</option>`).join('');
-  d.innerHTML=`<select onchange="calcTotalPed()">${opts}</select>
+  const id=Date.now()+Math.random();const d=document.createElement('div');d.className='iped';d.id='ip'+id;
+  d.innerHTML=`<div style="position:relative;flex:2">
+      <input type="text" class="ipbusca" placeholder="Buscar produto..." oninput="onInputProdutoPed(this)" onfocus="mostrarSugestoesPed(this)" autocomplete="off">
+      <div class="ipsugestoes"></div>
+      <input type="hidden" class="ipprod">
+    </div>
     <input type="number" class="ipqty" min="1" placeholder="Qtd" oninput="calcTotalPed()">
     <input type="number" class="ippreco" min="0" step="0.01" placeholder="R$" oninput="calcTotalPed()">
     <button class="del" onclick="document.getElementById('ip${id}').remove();calcTotalPed()">✕</button>`;
@@ -736,9 +838,10 @@ async function salvarPed(){
   if(!cli||cli==='Selecione...'){toast('Selecione o cliente.');return;}
   const rows=document.getElementById('itens-ped').children;
   if(!rows.length){toast('Adicione pelo menos um produto.');return;}
+  for(const r of rows){if(!r.querySelector('.ipprod').value){toast('Selecione um produto da lista (clique numa sugestão) em todos os itens.');return;}}
   const itens=[];let total=0;
   for(const r of rows){
-    const prod=r.querySelector('select').value;
+    const prod=r.querySelector('.ipprod').value;
     const qty=parseFloat(r.querySelector('.ipqty').value)||0;
     const preco=parseFloat(r.querySelector('.ippreco').value)||precoProd[prod]||0;
     if(preco>0){precoProd[prod]=preco;await db.from('precos_prod').upsert({nome:prod,preco},{onConflict:'nome'});}
@@ -753,6 +856,57 @@ async function salvarPed(){
   document.getElementById('total-ped-wrap').style.display='none';
   document.getElementById('btn-salvar-ped').disabled=false;
   await carregarPeds();toast('Pedido #'+pedNum+' salvo!');
+}
+
+// EDITAR PEDIDO JÁ SALVO (inclusive entregue)
+let editPedId=null;
+function abrirEditPedido(id){
+  const p=pedidos.find(x=>x.id===id);if(!p)return;
+  editPedId=id;
+  document.getElementById('edit-ped-num').textContent=p.num;
+  const s=document.getElementById('edit-sel-cli');
+  s.innerHTML=clientes.map(c=>`<option ${c.nome===p.cliente?'selected':''}>${c.nome}</option>`).join('');
+  document.getElementById('edit-obs-ped').value=p.obs||'';
+  const cont=document.getElementById('edit-itens-ped');cont.innerHTML='';
+  (p.itens&&p.itens.length?p.itens:[{}]).forEach(it=>addItemEdit(it));
+  document.getElementById('ped-edit-overlay').classList.add('on');
+}
+function fecharEditPedido(){document.getElementById('ped-edit-overlay').classList.remove('on');editPedId=null}
+function addItemEdit(it){
+  it=it||{};
+  const id=Date.now()+Math.random();const d=document.createElement('div');d.className='iped';d.id='iep'+id;
+  d.innerHTML=`<div style="position:relative;flex:2">
+      <input type="text" class="ipbusca" value="${it.prod||''}" placeholder="Buscar produto..." oninput="onInputProdutoPed(this)" onfocus="mostrarSugestoesPed(this)" autocomplete="off">
+      <div class="ipsugestoes"></div>
+      <input type="hidden" class="ipprod" value="${it.prod||''}">
+    </div>
+    <input type="number" class="ipqty" min="1" placeholder="Qtd" value="${it.qty||''}">
+    <input type="number" class="ippreco" min="0" step="0.01" placeholder="R$" value="${it.preco||''}">
+    <button class="del" onclick="document.getElementById('iep${id}').remove()">✕</button>`;
+  document.getElementById('edit-itens-ped').appendChild(d);
+}
+async function salvarEdicaoPedido(){
+  if(!editPedId)return;
+  const s=document.getElementById('edit-sel-cli');
+  const cli=s.options[s.selectedIndex]?.text||'';
+  if(!cli){toast('Selecione o cliente.');return;}
+  const rows=document.getElementById('edit-itens-ped').children;
+  if(!rows.length){toast('Adicione pelo menos um produto.');return;}
+  for(const r of rows){if(!r.querySelector('.ipprod').value){toast('Selecione um produto da lista em todos os itens.');return;}}
+  const itens=[];let total=0;
+  for(const r of rows){
+    const prod=r.querySelector('.ipprod').value;
+    const qty=parseFloat(r.querySelector('.ipqty').value)||0;
+    const preco=parseFloat(r.querySelector('.ippreco').value)||precoProd[prod]||0;
+    if(preco>0){precoProd[prod]=preco;await db.from('precos_prod').upsert({nome:prod,preco},{onConflict:'nome'});}
+    total+=qty*preco;
+    itens.push({prod,qty:r.querySelector('.ipqty').value||'?',preco});
+  }
+  document.getElementById('btn-salvar-edit-ped').disabled=true;
+  await db.from('pedidos').update({cliente:cli,itens,total,obs:document.getElementById('edit-obs-ped').value.trim()}).eq('id',editPedId);
+  document.getElementById('btn-salvar-edit-ped').disabled=false;
+  fecharEditPedido();
+  await carregarPeds();toast('Pedido atualizado!');
 }
 async function avancarStatus(id,statusAtual,itens){
   let novoStatus=statusAtual==='pendente'?'separando':'entregue';
@@ -817,8 +971,11 @@ function renderPeds(){
             ?`<input class="conf-inp" type="text" placeholder="Nome do conferente" value="${p.conf_nome||''}" onchange="salvarConf(${p.id},'conf_nome',this.value)">`
             :`<span style="font-size:13px;color:var(--txt2)">${p.conf_nome||'—'}</span>`}
         </div>
-        ${p.status==='pendente'?`<button class="btn-adv adv-s" onclick="avancarStatus(${p.id},'pendente',${JSON.stringify(p.itens||[]).replace(/"/g,'&quot;')})">Iniciar separação</button>`:''}
-        ${p.status==='separando'?`<button class="btn-adv adv-e" onclick="avancarStatus(${p.id},'separando',${JSON.stringify(p.itens||[]).replace(/"/g,'&quot;')})">✓ Confirmar entrega</button>`:''}
+        <div style="display:flex;gap:6px">
+          <button class="btn-adv" style="background:var(--bg3);color:var(--txt2);border:1px solid var(--borda2)" onclick="abrirEditPedido(${p.id})">✎ Editar</button>
+          ${p.status==='pendente'?`<button class="btn-adv adv-s" onclick="avancarStatus(${p.id},'pendente',${JSON.stringify(p.itens||[]).replace(/"/g,'&quot;')})">Iniciar separação</button>`:''}
+          ${p.status==='separando'?`<button class="btn-adv adv-e" onclick="avancarStatus(${p.id},'separando',${JSON.stringify(p.itens||[]).replace(/"/g,'&quot;')})">✓ Confirmar entrega</button>`:''}
+        </div>
       </div>
     </div>`).join('');
 }
@@ -841,8 +998,8 @@ async function salvarForn(){
   const{data}=await db.from('fornecedores').select('*').order('nome');if(data)fornecedores=data;
   renderForns();toast('Fornecedor salvo!');
 }
-async function delCli(id){await db.from('clientes').delete().eq('id',id);await carregarClis()}
-async function delForn(id){await db.from('fornecedores').delete().eq('id',id);const{data}=await db.from('fornecedores').select('*').order('nome');if(data)fornecedores=data;renderForns()}
+async function delCli(id){if(!confirm('Tem certeza que deseja excluir este cliente?'))return;await db.from('clientes').delete().eq('id',id);await carregarClis()}
+async function delForn(id){if(!confirm('Tem certeza que deseja excluir este fornecedor?'))return;await db.from('fornecedores').delete().eq('id',id);const{data}=await db.from('fornecedores').select('*').order('nome');if(data)fornecedores=data;renderForns()}
 function renderClis(){
   const el=document.getElementById('lista-cli');
   if(!clientes.length){el.innerHTML='<div class="empty"><div class="empty-icon">👤</div><div class="empty-txt">Nenhum cliente ainda</div></div>';updSelCli();return;}
