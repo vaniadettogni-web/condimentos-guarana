@@ -300,6 +300,19 @@ table.pt td:nth-child(5),table.pt td:nth-child(6),table.pt td:nth-child(7){text-
         <input type="text" id="busca-prod" placeholder="Buscar produto..." oninput="renderProd()">
       </div>
       <div class="plist" id="lista-prod"></div>
+      <div class="fcard">
+        <div class="fcard-t">Registrar entrada</div>
+        <div class="frow"><div class="flbl">Produto</div><select id="sel-prod"></select></div>
+        <div class="frow"><div class="flbl">Quantidade</div><input type="number" id="qty-prod" placeholder="Ex: 20" min="1"></div>
+        <div class="frow"><div class="flbl">Foto (opcional)</div>
+          <div class="foto-area" onclick="document.getElementById('fi-prod').click()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".35"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <p>Tirar foto ou galeria</p><img id="fp-prod" class="fprev">
+          </div>
+          <input type="file" id="fi-prod" accept="image/*" capture="environment" style="display:none" onchange="prevFoto('prod')">
+        </div>
+        <button class="btn-m" id="btn-entrada-prod" onclick="entradaProd()">Registrar entrada</button>
+      </div>
       <div class="fcard"><div class="fcard-t">Estoque mínimo por produto</div><div id="lista-min"></div></div>
     </div>
     <div id="sub-mp" style="display:none">
@@ -491,6 +504,17 @@ table.pt td:nth-child(5),table.pt td:nth-child(6),table.pt td:nth-child(7){text-
   </div>
 </div>
 
+<div class="overlay" id="prod-novo-overlay">
+  <div class="pin-box" style="width:290px;text-align:left">
+    <h2 style="text-align:center">Novo produto</h2>
+    <div class="frow" style="margin-top:14px"><div class="flbl">Nome do produto</div><input type="text" id="novo-prod-nome" placeholder="Ex: Cominho 30g"></div>
+    <div class="frow"><div class="flbl">Quantidade inicial</div><input type="number" id="novo-prod-qty" min="0" placeholder="0"></div>
+    <div class="frow"><div class="flbl">Estoque mínimo</div><input type="number" id="novo-prod-min" min="1" placeholder="50"></div>
+    <button class="btn-m" id="btn-salvar-novo-prod" onclick="salvarNovoProduto()">Cadastrar produto</button>
+    <button class="pcl" style="width:100%" onclick="fecharNovoProduto()">Cancelar</button>
+  </div>
+</div>
+
 <div class="overlay" id="ped-edit-overlay">
   <div class="pin-box" style="width:320px;max-height:82vh;overflow-y:auto;text-align:left">
     <h2 style="text-align:center;margin-bottom:12px">Editar pedido #<span id="edit-ped-num"></span></h2>
@@ -503,26 +527,6 @@ table.pt td:nth-child(5),table.pt td:nth-child(6),table.pt td:nth-child(7){text-
     <div class="frow" style="margin-top:9px"><div class="flbl">Observação</div><textarea id="edit-obs-ped" rows="2"></textarea></div>
     <button class="btn-m" id="btn-salvar-edit-ped" onclick="salvarEdicaoPedido()">Salvar alterações</button>
     <button class="pcl" style="width:100%" onclick="fecharEditPedido()">Cancelar</button>
-  </div>
-</div>
-
-<div class="overlay" id="novo-prod-overlay">
-  <div class="pin-box" style="width:290px;text-align:left">
-    <h2 style="text-align:center">Novo produto</h2>
-    <div class="frow" style="margin-top:14px"><div class="flbl">Nome do produto</div><input type="text" id="novo-prod-nome" placeholder="Ex: Pimenta Rosa 30g"></div>
-    <div class="frow"><div class="flbl">Quantidade inicial</div><input type="number" id="novo-prod-qty" min="0" placeholder="0"></div>
-    <div class="frow"><div class="flbl">Estoque mínimo</div><input type="number" id="novo-prod-min" min="1" placeholder="Ex: 20"></div>
-    <button class="btn-m" id="btn-criar-produto" onclick="criarNovoProduto()">Cadastrar produto</button>
-    <button class="pcl" style="width:100%" onclick="fecharNovoProduto()">Cancelar</button>
-  </div>
-</div>
-
-<div class="overlay" id="entrada-overlay">
-  <div class="pin-box" style="width:280px;text-align:left">
-    <h2 style="text-align:center" id="entrada-prod-nome">Registrar entrada</h2>
-    <div class="frow" style="margin-top:14px"><div class="flbl">Quantidade a adicionar</div><input type="number" id="entrada-qty" min="1" placeholder="Ex: 20"></div>
-    <button class="btn-m" id="btn-confirmar-entrada" onclick="confirmarEntradaRapida()">Registrar entrada</button>
-    <button class="pcl" style="width:100%" onclick="fecharEntradaRapida()">Cancelar</button>
   </div>
 </div>
 
@@ -594,6 +598,7 @@ const CATS_FIN={
 };
 
 // UTILS
+function normTxt(s){return(s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
 function fmt(n){return'R$ '+Math.abs(parseFloat(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function hoje(){return new Date().toLocaleDateString('pt-BR')}
 function ini(n){return n.trim().split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
@@ -658,11 +663,10 @@ async function iniciarProdutos(){
   const faltando=PRODS_NOMES.filter(n=>!nomesExistentes.has(n));
   if(faltando.length>0){
     const inserts=faltando.map(n=>({nome:n,qty:0,min:50}));
-    await db.from('produtos').upsert(inserts,{onConflict:'nome',ignoreDuplicates:true});
-    const{data:atual}=await db.from('produtos').select('*').order('nome');
-    produtos=atual||existentes;
-    return;
+    const {data:novos}=await db.from('produtos').insert(inserts).select();
+    if(novos)existentes.push(...novos);
   }
+  existentes.sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
   produtos=existentes;
 }
 async function iniciarMPs(){
@@ -702,8 +706,8 @@ async function carregarClis(){const{data}=await db.from('clientes').select('*').
 
 // ESTOQUE PRODUTOS
 function renderProd(){
-  const b=(document.getElementById('busca-prod').value||'').toLowerCase();
-  const fil=produtos.filter(p=>p.nome.toLowerCase().includes(b));
+  const b=normTxt(document.getElementById('busca-prod').value||'');
+  const fil=produtos.filter(p=>normTxt(p.nome).includes(b));
   const zer=produtos.filter(p=>p.qty===0);
   const low=produtos.filter(p=>p.qty>0&&p.qty<=p.min);
   document.getElementById('cont-prod-zerado').textContent=zer.length;
@@ -714,54 +718,10 @@ function renderProd(){
   document.getElementById('al-prod').innerHTML=al;
   document.getElementById('lista-prod').innerHTML=fil.map(p=>{
     let bc='bok',bt='OK';if(p.qty===0){bc='bout';bt='Zerado'}else if(p.qty<=p.min){bc='blow';bt='Baixo'}
-    return`<div class="pi"><div class="pi-n">${p.nome}</div><div class="pi-r"><span class="badge ${bc}">${bt}</span><div class="pi-q">${p.qty}</div><button class="cli-del" style="opacity:.6;font-size:16px;color:var(--verde)" onclick="abrirEntradaRapida(${p.id})">＋</button><button class="cli-del" style="opacity:.5;font-size:14px" onclick="abrirEditProduto(${p.id})">✎</button></div></div>`;
+    return`<div class="pi"><div class="pi-n">${p.nome}</div><div class="pi-r"><span class="badge ${bc}">${bt}</span><div class="pi-q">${p.qty}</div><button class="cli-del" style="opacity:.5;font-size:14px" onclick="abrirEditProduto(${p.id})">✎</button></div></div>`;
   }).join('');
+  const s=document.getElementById('sel-prod');if(s)s.innerHTML=produtos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
   document.getElementById('lista-min').innerHTML=produtos.map(p=>`<div class="min-row"><div class="min-name">${p.nome}</div><input class="min-inp" type="number" value="${p.min}" min="1" onchange="atualizarMin(${p.id},this.value)"></div>`).join('');
-}
-
-// NOVO PRODUTO
-function abrirNovoProduto(){
-  document.getElementById('novo-prod-nome').value='';
-  document.getElementById('novo-prod-qty').value='';
-  document.getElementById('novo-prod-min').value='';
-  document.getElementById('novo-prod-overlay').classList.add('on');
-}
-function fecharNovoProduto(){document.getElementById('novo-prod-overlay').classList.remove('on')}
-async function criarNovoProduto(){
-  const nome=document.getElementById('novo-prod-nome').value.trim();
-  const qty=parseInt(document.getElementById('novo-prod-qty').value)||0;
-  const min=parseInt(document.getElementById('novo-prod-min').value)||1;
-  if(!nome){toast('Informe o nome do produto.');return;}
-  if(produtos.some(p=>p.nome.toLowerCase()===nome.toLowerCase())){toast('Já existe um produto com esse nome.');return;}
-  document.getElementById('btn-criar-produto').disabled=true;
-  const{error}=await db.from('produtos').insert({nome,qty,min});
-  document.getElementById('btn-criar-produto').disabled=false;
-  if(error){toast('Não foi possível cadastrar — talvez esse nome já exista.');return;}
-  fecharNovoProduto();
-  await carregarProds();toast('Produto "'+nome+'" cadastrado!');
-}
-
-// ENTRADA RÁPIDA DE ESTOQUE (com confirmação)
-let entradaProdId=null;
-function abrirEntradaRapida(id){
-  const p=produtos.find(x=>x.id===id);if(!p)return;
-  entradaProdId=id;
-  document.getElementById('entrada-prod-nome').textContent=p.nome;
-  document.getElementById('entrada-qty').value='';
-  document.getElementById('entrada-overlay').classList.add('on');
-}
-function fecharEntradaRapida(){document.getElementById('entrada-overlay').classList.remove('on');entradaProdId=null}
-async function confirmarEntradaRapida(){
-  if(!entradaProdId)return;
-  const qty=parseInt(document.getElementById('entrada-qty').value)||0;
-  if(qty<=0){toast('Informe uma quantidade válida.');return;}
-  const prod=produtos.find(p=>p.id===entradaProdId);if(!prod)return;
-  if(!confirm(`Tem certeza que deseja registrar entrada de ${qty} × ${prod.nome}?`))return;
-  document.getElementById('btn-confirmar-entrada').disabled=true;
-  await db.from('produtos').update({qty:prod.qty+qty}).eq('id',entradaProdId);
-  document.getElementById('btn-confirmar-entrada').disabled=false;
-  fecharEntradaRapida();
-  await carregarProds();toast(`+${qty} × ${prod.nome}`);
 }
 
 // EDITAR/EXCLUIR PRODUTO
@@ -792,9 +752,41 @@ async function excluirProdutoConfirm(){
   fecharEditProduto();
   await carregarProds();toast('Produto excluído.');
 }
+async function abrirNovoProduto(){
+  document.getElementById('novo-prod-nome').value='';
+  document.getElementById('novo-prod-qty').value='';
+  document.getElementById('novo-prod-min').value='';
+  document.getElementById('prod-novo-overlay').classList.add('on');
+}
+function fecharNovoProduto(){document.getElementById('prod-novo-overlay').classList.remove('on')}
+async function salvarNovoProduto(){
+  const nome=document.getElementById('novo-prod-nome').value.trim();
+  const qty=parseInt(document.getElementById('novo-prod-qty').value)||0;
+  const min=parseInt(document.getElementById('novo-prod-min').value)||50;
+  if(!nome){toast('Informe o nome do produto.');return;}
+  if(produtos.some(p=>normTxt(p.nome)===normTxt(nome))){toast('Já existe um produto com esse nome.');return;}
+  document.getElementById('btn-salvar-novo-prod').disabled=true;
+  await db.from('produtos').insert({nome,qty,min});
+  document.getElementById('btn-salvar-novo-prod').disabled=false;
+  fecharNovoProduto();
+  await carregarProds();toast('Produto cadastrado!');
+}
 async function atualizarMin(id,val){
   await db.from('produtos').update({min:parseInt(val)||1}).eq('id',id);
   await carregarProds();
+}
+async function entradaProd(){
+  const sel=document.getElementById('sel-prod');
+  const id=parseInt(sel.value);
+  const qty=parseInt(document.getElementById('qty-prod').value)||0;
+  if(qty<=0){toast('Informe uma quantidade válida.');return;}
+  const prod=produtos.find(p=>p.id===id);if(!prod)return;
+  document.getElementById('btn-entrada-prod').disabled=true;
+  await db.from('produtos').update({qty:prod.qty+qty}).eq('id',id);
+  document.getElementById('qty-prod').value='';
+  document.getElementById('fp-prod').style.display='none';
+  document.getElementById('btn-entrada-prod').disabled=false;
+  await carregarProds();toast(`+${qty} × ${prod.nome}`);
 }
 
 // MP
@@ -836,8 +828,8 @@ function onInputProdutoPed(inp){
 function mostrarSugestoesPed(inp){
   const row=inp.closest('.iped');
   const box=row.querySelector('.ipsugestoes');
-  const termo=inp.value.toLowerCase();
-  const fil=(termo?produtos.filter(p=>p.nome.toLowerCase().includes(termo)):produtos).slice(0,30);
+  const termo=normTxt(inp.value);
+  const fil=(termo?produtos.filter(p=>normTxt(p.nome).includes(termo)):produtos).slice(0,30);
   box.innerHTML=fil.length?fil.map(p=>`<div class="ipsug-item" onmousedown="selecionarProdutoPed(this,'${p.nome.replace(/'/g,"\\'")}')">${p.nome}</div>`).join(''):'<div class="ipsug-item" style="color:var(--txt3)">Nenhum produto encontrado</div>';
   box.style.display='block';
 }
