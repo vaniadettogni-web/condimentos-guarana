@@ -251,7 +251,18 @@ table.pt td:nth-child(5),table.pt td:nth-child(6),table.pt td:nth-child(7){text-
 </head>
 <body>
 
-<div class="loading-screen" id="loading">
+<div class="loading-screen" id="login-screen" style="z-index:1000">
+  <div class="loading-logo">CG</div>
+  <div class="loading-txt">Condimentos Guaraná</div>
+  <form id="login-form" style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:280px;padding:0 20px;margin-top:10px">
+    <input type="email" id="login-email" placeholder="Email" required autocomplete="username" style="background:var(--bg3);border:1px solid var(--borda2);border-radius:var(--r2);padding:11px 14px;color:var(--txt);font-family:var(--fb);font-size:14px">
+    <input type="password" id="login-senha" placeholder="Senha" required autocomplete="current-password" style="background:var(--bg3);border:1px solid var(--borda2);border-radius:var(--r2);padding:11px 14px;color:var(--txt);font-family:var(--fb);font-size:14px">
+    <button type="submit" id="login-btn" style="background:linear-gradient(135deg,var(--laranja),var(--amarelo));border:none;border-radius:var(--r2);padding:12px;color:#0C0C0F;font-family:var(--fs);font-weight:700;font-size:14px;cursor:pointer">Entrar</button>
+    <div id="login-erro" style="color:var(--vermelho);font-size:12px;text-align:center;min-height:16px"></div>
+  </form>
+</div>
+
+<div class="loading-screen" id="loading" style="display:none">
   <div class="loading-logo">CG</div>
   <div class="loading-txt">Condimentos Guaraná</div>
   <div class="spinner"></div>
@@ -1165,7 +1176,8 @@ function imprimirPeds(){
 }
 
 // INICIAR
-(async()=>{
+async function iniciarApp(){
+  document.getElementById('loading').style.display='flex';
   try{
     await carregarTudo();
     setupRealtime();
@@ -1175,6 +1187,34 @@ function imprimirPeds(){
   }catch(e){
     document.querySelector('.loading-sub').textContent='Erro ao conectar. Verifique a internet.';
     console.error(e);
+  }
+}
+
+// LOGIN / SESSÃO
+const telaLogin=document.getElementById('login-screen');
+document.getElementById('login-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const email=document.getElementById('login-email').value.trim();
+  const senha=document.getElementById('login-senha').value;
+  const btn=document.getElementById('login-btn');
+  const erro=document.getElementById('login-erro');
+  erro.textContent='';
+  btn.disabled=true;btn.textContent='Entrando...';
+  const {error}=await db.auth.signInWithPassword({email,password:senha});
+  btn.disabled=false;btn.textContent='Entrar';
+  if(error){erro.textContent='Email ou senha incorretos.';return;}
+  telaLogin.style.display='none';
+  iniciarApp();
+});
+
+(async()=>{
+  const {data}=await db.auth.getSession();
+  if(data.session){
+    telaLogin.style.display='none';
+    iniciarApp();
+  } else {
+    document.getElementById('loading').style.display='none';
+    telaLogin.style.display='flex';
   }
 })();
 </script>
